@@ -226,6 +226,7 @@
         const [prefix, setPrefix] = useState("");
         const [defaultShift, setDefaultShift] = useState("");
         const [autoWeekend, setAutoWeekend] = useState(true);
+        const [workType, setWorkType] = useState("onsite");
 
         const [profiles, setProfiles] = useState([]);
         const [scheduleRows, setScheduleRows] = useState([]);
@@ -329,7 +330,7 @@
             const weekend = current.getDay() === 0 || current.getDay() === 6;
             let shift = defaultShift || "AM9";
             let rest = "NO";
-            let onsite = "YES";
+            let onsite = workType === "remote" ? "NO" : "YES";
 
             if (autoWeekend && weekend) {
               shift = "RD";
@@ -352,10 +353,17 @@
         const updateRow = (index, field, value) => {
           const newRows = [...scheduleRows];
           newRows[index][field] = value;
-          if (field === "shift" && value === "RD") {
-            newRows[index].rest = "YES";
-            newRows[index].onsite = "NO";
+
+          if (field === "shift") {
+            if (value === "RD") {
+              newRows[index].rest = "YES";
+              newRows[index].onsite = "NO";
+            } else {
+              newRows[index].rest = "NO";
+              newRows[index].onsite = workType === "remote" ? "NO" : "YES";
+            }
           }
+
           setScheduleRows(newRows);
         };
 
@@ -511,6 +519,7 @@
                         setName(p.name);
                         setPrefix(p.prefix || "");
                         setDefaultShift(p.defaultShift || "");
+                        setWorkType(p.workType || "onsite");
                       }
                     }}
                   >
@@ -672,6 +681,11 @@
                       }
                       label="Auto set weekends as Rest Day (RD)"
                     />
+                  </Grid>
+                  <Grid item xs={12} md={4} sx={{ pt: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Work Type: {workType === "onsite" ? "Onsite" : "Remote"}
+                    </Typography>
                   </Grid>
                 </Grid>
 
@@ -1125,6 +1139,22 @@
                         ))}
                       </Select>
                     </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={form.workType === "onsite"}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              workType: e.target.checked ? "onsite" : "remote",
+                            })
+                          }
+                        />
+                      }
+                      label={form.workType === "onsite" ? "Onsite" : "Remote"}
+                    />
                   </Grid>
                 </Grid>
               </DialogContent>
