@@ -1,0 +1,1170 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EData - Schedule Generator</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@latest",
+          "react-dom": "https://esm.sh/react-dom@latest",
+          "react-dom/client": "https://esm.sh/react-dom@latest/client",
+          "react/jsx-runtime": "https://esm.sh/react@latest/jsx-runtime",
+          "@mui/material": "https://esm.sh/@mui/material@latest?external=react,react-dom",
+          "@mui/icons-material": "https://esm.sh/@mui/icons-material@latest?external=react,react-dom",
+          "react-router-dom": "https://esm.sh/react-router-dom@latest?external=react,react-dom",
+          "dexie": "https://unpkg.com/dexie@latest/dist/modern/dexie.min.mjs"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+
+    <script type="module" src="https://esm.sh/tsx"></script>
+    <script type="text/babel">
+      // @ts-nocheck
+      // language=tsx
+      import React, {
+        useState,
+        useEffect,
+        createContext,
+        useContext,
+      } from "react";
+      import { createRoot } from "react-dom/client";
+      import {
+        CssBaseline,
+        ThemeProvider,
+        Typography,
+        Container,
+        createTheme,
+        Box,
+        AppBar,
+        Toolbar,
+        IconButton,
+        Button,
+        Drawer,
+        List,
+        ListItemButton,
+        ListItemText,
+        ListItemIcon,
+        Card,
+        CardContent,
+        Grid,
+        TextField,
+        Select,
+        MenuItem,
+        FormControl,
+        InputLabel,
+        FormControlLabel,
+        Checkbox,
+        Table,
+        TableBody,
+        TableCell,
+        TableContainer,
+        TableHead,
+        TableRow,
+        Paper,
+        Dialog,
+        DialogTitle,
+        DialogContent,
+        DialogActions,
+        Stack,
+        Switch,
+        List as MuiList,
+      } from "@mui/material";
+      import {
+        HashRouter,
+        Routes,
+        Route,
+        Link as RouterLink,
+      } from "react-router-dom";
+      import {
+        Menu as MenuIcon,
+        Person as PersonIcon,
+        Download as DownloadIcon,
+        Build as BuildIcon,
+        Edit as EditIcon,
+        Delete as DeleteIcon,
+        Save as SaveIcon,
+        Upload as UploadIcon,
+      } from "@mui/icons-material";
+
+      // Modern ESM Dexie
+      import Dexie from "dexie";
+
+      const theme = createTheme({
+        cssVariables: true,
+        palette: {
+          primary: { main: "#1976d2" },
+          secondary: { main: "#19857b" },
+        },
+      });
+
+      const SHIFT_MAP = {
+        RD: "RD (Rest Day)",
+        AM9: "AM9 (06:00 AM - 02:00 PM)",
+        PM7: "PM7 (02:00 PM - 10:00 PM)",
+        NS2: "NS2 (10:00 PM - 06:00 AM)",
+        AM1: "AM1 (01:00 AM - 09:00 AM)",
+        AM2: "AM2 (02:00 AM - 10:00 AM)",
+        AM3: "AM3 (03:00 AM - 11:00 AM)",
+        AM5: "AM5 (04:00 AM - 12:00 PM)",
+        AM8: "AM8 (05:00 AM - 01:00 PM)",
+        A11: "A11 (07:00 AM - 03:00 PM)",
+        A13: "A13 (08:00 AM - 04:00 PM)",
+        A16: "A16 (09:00 AM - 05:00 PM)",
+        A18: "A18 (10:00 AM - 06:00 PM)",
+        A20: "A20 (11:00 AM - 07:00 PM)",
+        PM2: "PM2 (12:00 PM - 08:00 PM)",
+        PM5: "PM5 (01:00 PM - 09:00 PM)",
+        PM9: "PM9 (03:00 PM - 11:00 PM)",
+        P11: "P11 (04:00 PM - 12:00 AM)",
+        P13: "P13 (05:00 PM - 01:00 AM)",
+        P15: "P15 (06:00 PM - 02:00 AM)",
+        P16: "P16 (08:00 PM - 04:00 AM)",
+        P18: "P18 (09:00 PM - 05:00 AM)",
+        P19: "P19 (07:00 PM - 03:00 AM)",
+        NS: "NS (12:00 AM - 08:00 AM)",
+        NS3: "NS3 (11:00 PM - 07:00 AM)",
+      };
+
+      // Dexie Database
+      const db = new Dexie("EDataSchedules");
+      db.version(1).stores({
+        schedules: "++id, name, createdAt, employeeName, idno",
+      });
+
+      const AppContext = createContext(null);
+
+      const AppProvider = ({ children }) => {
+        const [drawerOpen, setDrawerOpen] = useState(false);
+        const toggleDrawer = () => setDrawerOpen(!drawerOpen);
+        return (
+          <AppContext.Provider value={{ drawerOpen, toggleDrawer }}>
+            {children}
+          </AppContext.Provider>
+        );
+      };
+
+      const useApp = () => useContext(AppContext);
+
+      const AppDrawer = () => {
+        const { drawerOpen, toggleDrawer } = useApp();
+        return (
+          <Drawer open={drawerOpen} onClose={toggleDrawer}>
+            <Box sx={{ width: 280, pt: 2 }}>
+              <List onClick={toggleDrawer}>
+                <ListItemButton component={RouterLink} to="/">
+                  <ListItemIcon>
+                    <BuildIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Generate Schedule" />
+                </ListItemButton>
+                <ListItemButton component={RouterLink} to="/profiles">
+                  <ListItemIcon>
+                    <PersonIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Manage Profiles" />
+                </ListItemButton>
+              </List>
+            </Box>
+          </Drawer>
+        );
+      };
+
+      const Header = () => {
+        const { toggleDrawer } = useApp();
+        return (
+          <AppBar position="static">
+            <Toolbar>
+              <IconButton
+                edge="start"
+                color="inherit"
+                onClick={toggleDrawer}
+                sx={{ mr: 2 }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                📅 EData Schedule Generator
+              </Typography>
+            </Toolbar>
+          </AppBar>
+        );
+      };
+
+      // ==================== SCHEDULE GENERATOR PAGE ====================
+      const SchedulePage = () => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDay = now.getDate();
+
+        let defaultHalf = currentDay > 15 ? "second" : "first";
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        let startStr = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${defaultHalf === "first" ? "01" : "16"}`;
+        let endStr =
+          defaultHalf === "first"
+            ? `${currentYear}-${String(currentMonth).padStart(2, "0")}-15`
+            : `${currentYear}-${String(currentMonth).padStart(2, "0")}-${daysInMonth}`;
+
+        const [idno, setIdno] = useState("");
+        const [name, setName] = useState("");
+        const [year, setYear] = useState(currentYear);
+        const [month, setMonth] = useState(currentMonth);
+        const [half, setHalf] = useState(defaultHalf);
+        const [useCustom, setUseCustom] = useState(false);
+        const [customStart, setCustomStart] = useState(startStr);
+        const [customEnd, setCustomEnd] = useState(endStr);
+
+        const [prefix, setPrefix] = useState("");
+        const [defaultShift, setDefaultShift] = useState("");
+        const [autoWeekend, setAutoWeekend] = useState(true);
+
+        const [profiles, setProfiles] = useState([]);
+        const [scheduleRows, setScheduleRows] = useState([]);
+        const [showTable, setShowTable] = useState(false);
+        const [tableTitle, setTableTitle] = useState("");
+        const [periodText, setPeriodText] = useState("");
+
+        const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+        const [scheduleName, setScheduleName] = useState("");
+        const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+        const [suggestedFilename, setSuggestedFilename] = useState("");
+
+        // Load Profiles for Quick Load
+        useEffect(() => {
+          const loadProfiles = async () => {
+            const saved = (await idbKeyval.get("employeeProfiles")) || [];
+            setProfiles(saved);
+          };
+          loadProfiles();
+        }, []);
+
+        // Load Saved Schedules for the popup
+        const [savedSchedules, setSavedSchedules] = useState([]);
+        const [loadScheduleDialogOpen, setLoadScheduleDialogOpen] =
+          useState(false);
+
+        const loadSavedSchedulesList = async () => {
+          const all = await db.schedules.toArray();
+          setSavedSchedules(all.sort((a, b) => b.createdAt - a.createdAt));
+        };
+
+        const openLoadScheduleDialog = async () => {
+          await loadSavedSchedulesList();
+          setLoadScheduleDialogOpen(true);
+        };
+
+        const loadSchedule = (sched) => {
+          setIdno(sched.idno || "");
+          setName(sched.employeeName || "");
+          setScheduleRows([...sched.rows]);
+          setTableTitle(`${sched.employeeName || "Employee"} • Schedule`);
+          setPeriodText(sched.periodText || "");
+          setShowTable(true);
+
+          // Restore optional settings
+          if (sched.prefix !== undefined) setPrefix(sched.prefix);
+          if (sched.defaultShift !== undefined)
+            setDefaultShift(sched.defaultShift);
+          if (typeof sched.autoWeekend === "boolean")
+            setAutoWeekend(sched.autoWeekend);
+          if (typeof sched.useCustom === "boolean")
+            setUseCustom(sched.useCustom);
+          if (sched.customStart) setCustomStart(sched.customStart);
+          if (sched.customEnd) setCustomEnd(sched.customEnd);
+
+          setLoadScheduleDialogOpen(false);
+          alert(`Schedule "${sched.name}" loaded successfully!`);
+        };
+
+        const deleteSchedule = async (id) => {
+          if (!confirm("Delete this saved schedule?")) return;
+          await db.schedules.delete(id);
+          await loadSavedSchedulesList(); // Refresh list
+        };
+
+        const generateTable = () => {
+          if (!idno || !name) {
+            alert("ID No and Full Name are required!");
+            return;
+          }
+
+          let startDate, endDate;
+          if (useCustom) {
+            startDate = new Date(customStart);
+            endDate = new Date(customEnd);
+          } else {
+            const startDay = half === "first" ? 1 : 16;
+            const endDay =
+              half === "first" ? Math.min(15, daysInMonth) : daysInMonth;
+            startDate = new Date(year, month - 1, startDay);
+            endDate = new Date(year, month - 1, endDay);
+          }
+
+          if (startDate > endDate) {
+            alert("Start date cannot be after end date!");
+            return;
+          }
+
+          const rows = [];
+          let current = new Date(startDate);
+
+          while (current <= endDate) {
+            const friendly = current.toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
+            const dateKey = `${current.getMonth() + 1}/${current.getDate()}/${current.getFullYear()}`;
+
+            const weekend = current.getDay() === 0 || current.getDay() === 6;
+            let shift = defaultShift || "AM9";
+            let rest = "NO";
+            let onsite = "YES";
+
+            if (autoWeekend && weekend) {
+              shift = "RD";
+              rest = "YES";
+              onsite = "NO";
+            }
+
+            rows.push({ dateKey, friendly, shift, rest, onsite });
+            current.setDate(current.getDate() + 1);
+          }
+
+          setScheduleRows(rows);
+          setTableTitle(`${name} • Schedule`);
+          setPeriodText(
+            `${startDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} to ${endDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
+          );
+          setShowTable(true);
+        };
+
+        const updateRow = (index, field, value) => {
+          const newRows = [...scheduleRows];
+          newRows[index][field] = value;
+          if (field === "shift" && value === "RD") {
+            newRows[index].rest = "YES";
+            newRows[index].onsite = "NO";
+          }
+          setScheduleRows(newRows);
+        };
+
+        const bulkSet = (code) => {
+          const newRows = scheduleRows.map((row) => {
+            const updated = { ...row, shift: code };
+            if (code === "RD") {
+              updated.rest = "YES";
+              updated.onsite = "NO";
+            }
+            return updated;
+          });
+          setScheduleRows(newRows);
+        };
+
+        const generateFilename = () => {
+          const cleanPrefix = (
+            prefix ||
+            name.split(",")[0]?.trim().toUpperCase() ||
+            "EMPLOYEE"
+          ).replace(/[^A-Z0-9]/gi, "");
+          let startD, endD;
+          if (useCustom) {
+            const s = new Date(customStart);
+            const e = new Date(customEnd);
+            startD = `${String(s.getMonth() + 1).padStart(2, "0")}${String(s.getDate()).padStart(2, "0")}`;
+            endD = `${String(e.getMonth() + 1).padStart(2, "0")}${String(e.getDate()).padStart(2, "0")}`;
+          } else {
+            const mm = String(month).padStart(2, "0");
+            const startDay = half === "first" ? "01" : "16";
+            const endDay =
+              half === "first" ? "15" : String(daysInMonth).padStart(2, "0");
+            startD = `${mm}${startDay}`;
+            endD = `${mm}${endDay}`;
+          }
+          return `${cleanPrefix}_${startD}-${endD}${year}.csv`;
+        };
+
+        const handleDownloadClick = () => {
+          if (!scheduleRows.length) return;
+          setSuggestedFilename(generateFilename());
+          setDownloadModalOpen(true);
+        };
+
+        const confirmDownload = () => {
+          let csv = "idno,name,date,shiftcode,restday,onsite\n";
+          scheduleRows.forEach((r) => {
+            csv += `${idno},"${name}",${r.dateKey},${r.shift},${r.rest},${r.onsite}\n`;
+          });
+
+          const blob = new Blob([csv], { type: "text/csv" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = suggestedFilename;
+          link.click();
+          setDownloadModalOpen(false);
+        };
+
+        const openSaveDialog = () => {
+          if (!scheduleRows.length) {
+            alert("Please generate a schedule first!");
+            return;
+          }
+          setScheduleName(
+            `${name || "My Schedule"} - ${new Date().toLocaleDateString()}`,
+          );
+          setSaveDialogOpen(true);
+        };
+
+        const saveCurrentSchedule = async () => {
+          if (!scheduleName.trim()) {
+            alert("Please enter a schedule name");
+            return;
+          }
+
+          const scheduleData = {
+            name: scheduleName.trim(),
+            employeeName: name,
+            idno: idno,
+            rows: scheduleRows,
+            periodText: periodText,
+            createdAt: Date.now(),
+            prefix,
+            defaultShift,
+            autoWeekend,
+            useCustom,
+            customStart,
+            customEnd,
+            year,
+            month,
+            half,
+          };
+
+          await db.schedules.add(scheduleData);
+          setSaveDialogOpen(false);
+          setScheduleName("");
+          alert(`Schedule "${scheduleName}" saved successfully!`);
+        };
+
+        return (
+          <Container maxWidth="xl" sx={{ py: 4 }}>
+            <Typography variant="h3" fontWeight="bold" gutterBottom>
+              📅 Schedule CSV Generator
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              color="text.secondary"
+              sx={{ mb: 4 }}
+            >
+              With Shift Time Display • Bulk Actions • Custom Cutoff • Save/Load
+              Schedules
+            </Typography>
+
+            {/* Quick Load Profile Card - Updated with Load Schedule button */}
+            <Card sx={{ mb: 4 }}>
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="h6">Quick Load Profile</Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      component={RouterLink}
+                      to="/profiles"
+                      variant="outlined"
+                      startIcon={<PersonIcon />}
+                    >
+                      Manage Profiles
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<UploadIcon />}
+                      onClick={openLoadScheduleDialog}
+                    >
+                      Load Schedule
+                    </Button>
+                  </Stack>
+                </Box>
+                <FormControl fullWidth>
+                  <InputLabel>Select Profile</InputLabel>
+                  <Select
+                    label="Select Profile"
+                    onChange={(e) => {
+                      const idx = parseInt(e.target.value);
+                      if (!isNaN(idx)) {
+                        const p = profiles[idx];
+                        setIdno(p.idno);
+                        setName(p.name);
+                        setPrefix(p.prefix || "");
+                        setDefaultShift(p.defaultShift || "");
+                      }
+                    }}
+                  >
+                    <MenuItem value="">-- Select a profile --</MenuItem>
+                    {profiles.map((p, i) => (
+                      <MenuItem key={i} value={i}>
+                        {p.name} ({p.idno})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </CardContent>
+            </Card>
+
+            {/* Main Form */}
+            <Card sx={{ mb: 6 }}>
+              <CardContent>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      fullWidth
+                      label="ID No"
+                      value={idno}
+                      onChange={(e) => setIdno(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={5}>
+                    <TextField
+                      fullWidth
+                      label="Full Name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <TextField
+                      fullWidth
+                      label="Year"
+                      type="number"
+                      value={year}
+                      onChange={(e) => setYear(Number(e.target.value))}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <FormControl fullWidth>
+                      <InputLabel>Month</InputLabel>
+                      <Select
+                        value={month}
+                        onChange={(e) => setMonth(Number(e.target.value))}
+                      >
+                        {[
+                          "January",
+                          "February",
+                          "March",
+                          "April",
+                          "May",
+                          "June",
+                          "July",
+                          "August",
+                          "September",
+                          "October",
+                          "November",
+                          "December",
+                        ].map((m, i) => (
+                          <MenuItem key={i} value={i + 1}>
+                            {m}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ mt: 3, mb: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={useCustom}
+                        onChange={(e) => setUseCustom(e.target.checked)}
+                      />
+                    }
+                    label="Use Custom Schedule (Special Cut-off Dates)"
+                  />
+                </Box>
+
+                {!useCustom ? (
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Standard Period</InputLabel>
+                        <Select
+                          value={half}
+                          onChange={(e) => setHalf(e.target.value)}
+                        >
+                          <MenuItem value="first">First Half (1-15)</MenuItem>
+                          <MenuItem value="second">
+                            Second Half (16-end)
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                ) : (
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Start Date"
+                        type="date"
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="End Date"
+                        type="date"
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+
+                <Grid container spacing={3} sx={{ mt: 3 }}>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="CSV Prefix"
+                      value={prefix}
+                      onChange={(e) => setPrefix(e.target.value)}
+                      placeholder="e.g. DELACRUZ"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>Default Shift</InputLabel>
+                      <Select
+                        value={defaultShift}
+                        onChange={(e) => setDefaultShift(e.target.value)}
+                      >
+                        <MenuItem value="">-- None --</MenuItem>
+                        {Object.keys(SHIFT_MAP).map((k) => (
+                          <MenuItem key={k} value={k}>
+                            {SHIFT_MAP[k]}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4} sx={{ pt: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={autoWeekend}
+                          onChange={(e) => setAutoWeekend(e.target.checked)}
+                        />
+                      }
+                      label="Auto set weekends as Rest Day (RD)"
+                    />
+                  </Grid>
+                </Grid>
+
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  onClick={generateTable}
+                  sx={{ mt: 4, py: 1.8 }}
+                >
+                  Generate Schedule Table
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Generated Table */}
+            {showTable && (
+              <Card>
+                <CardContent>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 2,
+                      mb: 3,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="h5" fontWeight={600}>
+                        {tableTitle}
+                      </Typography>
+                      <Typography
+                        color="success.main"
+                        sx={{ fontSize: "1.1rem" }}
+                      >
+                        {periodText}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      {["AM9", "PM7", "NS2", "RD"].map((code) => (
+                        <Button
+                          key={code}
+                          variant="outlined"
+                          size="small"
+                          onClick={() => bulkSet(code)}
+                        >
+                          {code} All
+                        </Button>
+                      ))}
+                      <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={<DownloadIcon />}
+                        onClick={handleDownloadClick}
+                      >
+                        Download CSV
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<SaveIcon />}
+                        onClick={openSaveDialog}
+                      >
+                        Save Schedule
+                      </Button>
+                    </Stack>
+                  </Box>
+
+                  <TableContainer component={Paper}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>
+                            <strong>Date</strong>
+                          </TableCell>
+                          <TableCell>
+                            <strong>Shift Code + Time</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Rest Day</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Onsite</strong>
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {scheduleRows.map((row, idx) => (
+                          <TableRow key={idx} hover>
+                            <TableCell>{row.friendly}</TableCell>
+                            <TableCell>
+                              <Select
+                                size="small"
+                                value={row.shift}
+                                onChange={(e) =>
+                                  updateRow(idx, "shift", e.target.value)
+                                }
+                                sx={{ minWidth: 260 }}
+                              >
+                                {Object.keys(SHIFT_MAP).map((k) => (
+                                  <MenuItem key={k} value={k}>
+                                    {SHIFT_MAP[k]}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Select
+                                size="small"
+                                value={row.rest}
+                                onChange={(e) =>
+                                  updateRow(idx, "rest", e.target.value)
+                                }
+                              >
+                                <MenuItem value="NO">NO</MenuItem>
+                                <MenuItem value="YES">YES</MenuItem>
+                              </Select>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Select
+                                size="small"
+                                value={row.onsite}
+                                onChange={(e) =>
+                                  updateRow(idx, "onsite", e.target.value)
+                                }
+                              >
+                                <MenuItem value="YES">YES</MenuItem>
+                                <MenuItem value="NO">NO</MenuItem>
+                              </Select>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Save Schedule Dialog */}
+            <Dialog
+              open={saveDialogOpen}
+              onClose={() => setSaveDialogOpen(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Save Current Schedule</DialogTitle>
+              <DialogContent>
+                <TextField
+                  autoFocus
+                  fullWidth
+                  label="Schedule Name"
+                  value={scheduleName}
+                  onChange={(e) => setScheduleName(e.target.value)}
+                  placeholder="e.g. Juan Dela Cruz - March 2026 First Half"
+                  sx={{ mt: 2 }}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  onClick={saveCurrentSchedule}
+                  startIcon={<SaveIcon />}
+                >
+                  Save Schedule
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* Load Schedule Popup Dialog */}
+            <Dialog
+              open={loadScheduleDialogOpen}
+              onClose={() => setLoadScheduleDialogOpen(false)}
+              maxWidth="md"
+              fullWidth
+            >
+              <DialogTitle>Load Saved Schedule</DialogTitle>
+              <DialogContent>
+                {savedSchedules.length > 0 ? (
+                  <MuiList>
+                    {savedSchedules.map((sched) => (
+                      <ListItemButton
+                        key={sched.id}
+                        onClick={() => loadSchedule(sched)}
+                        sx={{
+                          mb: 1,
+                          border: "1px solid #e0e0e0",
+                          borderRadius: 1,
+                        }}
+                      >
+                        <ListItemText
+                          primary={sched.name}
+                          secondary={`${sched.employeeName || "Unknown"} • ${new Date(sched.createdAt).toLocaleDateString()} • ${sched.rows ? sched.rows.length : 0} days`}
+                        />
+                        <IconButton
+                          edge="end"
+                          color="error"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSchedule(sched.id);
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </ListItemButton>
+                    ))}
+                  </MuiList>
+                ) : (
+                  <Typography
+                    align="center"
+                    color="text.secondary"
+                    sx={{ py: 6 }}
+                  >
+                    No saved schedules yet.
+                    <br />
+                    Generate and save a schedule first.
+                  </Typography>
+                )}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setLoadScheduleDialogOpen(false)}>
+                  Close
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* Download Modal */}
+            <Dialog
+              open={downloadModalOpen}
+              onClose={() => setDownloadModalOpen(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Download Schedule CSV</DialogTitle>
+              <DialogContent>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Suggested filename (you can edit it):
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="Filename"
+                  value={suggestedFilename}
+                  onChange={(e) => setSuggestedFilename(e.target.value)}
+                  helperText="Standard format: LASTNAME_MMDD-MMDDYYYY.csv"
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDownloadModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={confirmDownload}
+                  startIcon={<DownloadIcon />}
+                >
+                  Download File
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </Container>
+        );
+      };
+
+      // ==================== PROFILES PAGE ====================
+      const ProfilesPage = () => {
+        const [profiles, setProfiles] = useState([]);
+        const [openDialog, setOpenDialog] = useState(false);
+        const [editingIndex, setEditingIndex] = useState(null);
+        const [form, setForm] = useState({
+          idno: "",
+          name: "",
+          prefix: "",
+          defaultShift: "",
+          workType: "onsite",
+        });
+
+        useEffect(() => {
+          const load = async () => {
+            const saved = (await idbKeyval.get("employeeProfiles")) || [];
+            setProfiles(saved);
+          };
+          load();
+        }, []);
+
+        const saveProfile = async () => {
+          if (!form.idno || !form.name)
+            return alert("ID No and Name are required");
+          const newProfile = {
+            ...form,
+            prefix:
+              form.prefix ||
+              form.name.split(",")[0]?.trim().toUpperCase() ||
+              "",
+          };
+
+          let updated =
+            editingIndex !== null ? [...profiles] : [newProfile, ...profiles];
+          if (editingIndex !== null) updated[editingIndex] = newProfile;
+
+          await idbKeyval.set("employeeProfiles", updated);
+          setProfiles(updated);
+          setOpenDialog(false);
+          setEditingIndex(null);
+          setForm({
+            idno: "",
+            name: "",
+            prefix: "",
+            defaultShift: "",
+            workType: "onsite",
+          });
+        };
+
+        const deleteProfile = async (index) => {
+          if (!confirm("Delete this profile?")) return;
+          const updated = profiles.filter((_, i) => i !== index);
+          await idbKeyval.set("employeeProfiles", updated);
+          setProfiles(updated);
+        };
+
+        const editProfile = (index) => {
+          setForm(profiles[index]);
+          setEditingIndex(index);
+          setOpenDialog(true);
+        };
+
+        return (
+          <Container maxWidth="md" sx={{ py: 4 }}>
+            <Typography variant="h4" gutterBottom>
+              Manage Profiles
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setEditingIndex(null);
+                setForm({
+                  idno: "",
+                  name: "",
+                  prefix: "",
+                  defaultShift: "",
+                  workType: "onsite",
+                });
+                setOpenDialog(true);
+              }}
+              sx={{ mb: 3 }}
+            >
+              + Create New Profile
+            </Button>
+
+            <Grid container spacing={2}>
+              {profiles.map((p, i) => (
+                <Grid item xs={12} key={i}>
+                  <Card>
+                    <CardContent>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="h6">{p.name}</Typography>
+                          <Typography color="text.secondary">
+                            ID: {p.idno}
+                          </Typography>
+                          <Typography variant="body2">
+                            Prefix: {p.prefix} • Default:{" "}
+                            {p.defaultShift
+                              ? SHIFT_MAP[p.defaultShift]
+                              : "None"}{" "}
+                            • {p.workType}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1}>
+                          <IconButton
+                            onClick={() => editProfile(i)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            onClick={() => deleteProfile(i)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Stack>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            <Dialog
+              open={openDialog}
+              onClose={() => setOpenDialog(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>
+                {editingIndex !== null ? "Edit Profile" : "Create New Profile"}
+              </DialogTitle>
+              <DialogContent>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="ID No"
+                      value={form.idno}
+                      onChange={(e) =>
+                        setForm({ ...form, idno: e.target.value })
+                      }
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Full Name"
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="CSV Prefix (optional)"
+                      value={form.prefix}
+                      onChange={(e) =>
+                        setForm({ ...form, prefix: e.target.value })
+                      }
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <InputLabel>Default Shift</InputLabel>
+                      <Select
+                        value={form.defaultShift}
+                        onChange={(e) =>
+                          setForm({ ...form, defaultShift: e.target.value })
+                        }
+                      >
+                        <MenuItem value="">-- No Default --</MenuItem>
+                        {Object.keys(SHIFT_MAP).map((k) => (
+                          <MenuItem key={k} value={k}>
+                            {SHIFT_MAP[k]}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+                <Button variant="contained" onClick={saveProfile}>
+                  {editingIndex !== null ? "Update" : "Create"} Profile
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </Container>
+        );
+      };
+
+      function App() {
+        return (
+          <Box>
+            <Header />
+            <AppDrawer />
+            <Container sx={{ my: 4 }}>
+              <Routes>
+                <Route path="/" element={<SchedulePage />} />
+                <Route path="/profiles" element={<ProfilesPage />} />
+              </Routes>
+            </Container>
+          </Box>
+        );
+      }
+
+      const root = createRoot(document.getElementById("root"));
+      root.render(
+        <ThemeProvider theme={theme}>
+          <HashRouter>
+            <AppProvider>
+              <CssBaseline />
+              <App />
+            </AppProvider>
+          </HashRouter>
+        </ThemeProvider>,
+      );
+    </script>
+  </body>
+</html>

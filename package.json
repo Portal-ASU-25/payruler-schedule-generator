@@ -1,0 +1,49 @@
+{
+  "name": "payruler-schedule-generator",
+  "version": "1.0.0",
+  "description": "A modern, offline-first web application for generating employee shift schedules in CSV format, specifically designed for EData.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/michael-romero23/payruler-schedule-generator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/michael-romero23/payruler-schedule-generator/issues"
+  },
+  "homepage": "https://github.com/michael-romero23/payruler-schedule-generator#readme",
+  "devDependencies": {
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.edata.schedule.generator",
+    "productName": "EData Schedule Generator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
